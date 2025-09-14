@@ -1,0 +1,9 @@
+*.log
+*.tmp
+**/bin/
+**/obj/
+**/Build/
+Build/
+Client/
+ConsoleControl/
+对照参看/

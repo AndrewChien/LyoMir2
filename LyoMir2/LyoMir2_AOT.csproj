@@ -1,0 +1,67 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<!--winform AOT-->
+		<OutputType>WinExe</OutputType>
+		<Nullable>enable</Nullable>
+		<UseWindowsForms>true</UseWindowsForms>
+		<DebugType>embedded</DebugType>
+		<TargetFramework>net9.0-windows</TargetFramework>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+		<PublishTrimmed>true</PublishTrimmed>
+		<_SuppressWinFormsTrimError>true</_SuppressWinFormsTrimError>
+		<PublishAot>True</PublishAot>
+		<CustomResourceTypesSupport>true</CustomResourceTypesSupport>
+		<ImplicitUsings>enable</ImplicitUsings>
+
+
+		<!--<OutputType>WinExe</OutputType>
+		<TargetFramework>net9.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<UseWindowsForms>true</UseWindowsForms>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<RunAnalyzersDuringLiveAnalysis>True</RunAnalyzersDuringLiveAnalysis>
+		<RunAnalyzersDuringBuild>True</RunAnalyzersDuringBuild>
+		<PublishSingleFile>true</PublishSingleFile>-->
+	</PropertyGroup>
+
+	<!--<Choose>
+		<When Condition="$(Configuration)=='Debug' and '$(Mode)' == 'Dev'">
+
+		</When>
+		<When Condition="$(Configuration)=='Release'">
+			<PropertyGroup>
+				<DebugSymbols>false</DebugSymbols>
+				<Optimize>true</Optimize>
+				<DefineConstants>TRACE</DefineConstants>
+			</PropertyGroup>
+		</When>
+		<When Condition="$(Configuration)=='Debug'">
+			<Choose>
+				<When Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+					<PropertyGroup>
+						<OutputPath>..\Build\MirServer</OutputPath>
+					</PropertyGroup>
+				</When>
+				<When Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+					<PropertyGroup>
+						<OutputPath>/Volumes/Data/Mirserver</OutputPath>
+					</PropertyGroup>
+				</When>
+				<When Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+					<PropertyGroup>
+						<OutputPath>/Volumes/opt/Mirserver</OutputPath>
+					</PropertyGroup>
+				</When>
+			</Choose>
+		</When>
+	</Choose>-->
+
+	<!--winform AOT-->
+	<ItemGroup>
+		<PackageReference Include="VC-LTL" Version="5.1.1-Beta3" />
+		<PackageReference Include="WinFormsComInterop" Version="0.5.0" />
+	</ItemGroup>
+</Project>

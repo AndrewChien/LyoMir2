@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <RunAnalyzersDuringLiveAnalysis>True</RunAnalyzersDuringLiveAnalysis>
+        <RunAnalyzersDuringBuild>True</RunAnalyzersDuringBuild>
+        <Nullable>disable</Nullable>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+        <AssemblyName>DBSrv.Storage.MongoDB</AssemblyName>
+        <RootNamespace>DBSrv.Storage.MongoDB</RootNamespace>
+    </PropertyGroup>
+
+    <Choose>
+        <When Condition="$(Configuration)=='Debug' and '$(Mode)' == 'Dev'">
+
+        </When>
+        
+        <When Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+            <PropertyGroup>
+                <OutputPath>D:\MirServer\DBServer</OutputPath>
+            </PropertyGroup>
+        </When>
+        <When Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+            <PropertyGroup>
+                <OutputPath>/Volumes/Data/Mirserver/DBServer</OutputPath>
+            </PropertyGroup>
+        </When>
+        <When Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+            <PropertyGroup>
+                <OutputPath>/Volumes/opt/Mirserver/DBServer</OutputPath>
+            </PropertyGroup>
+        </When>
+    </Choose>
+
+    
+    <ItemGroup>
+      <PackageReference Include="MongoDB.Bson" Version="2.23.1" />
+      <PackageReference Include="MongoDB.Driver" Version="2.23.1" />
+      <PackageReference Include="NLog" Version="5.2.8" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\DBSrv.Storage\DBSrv.Storage.csproj" />
+    </ItemGroup>
+
+</Project>

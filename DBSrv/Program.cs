@@ -1,0 +1,33 @@
+﻿using MemoryPack;
+using System.Runtime;
+
+namespace DBSrv
+{
+    /// <summary>
+    /// DBSvr (数据库服务，读取和保存玩家数据).
+    /// </summary>
+    internal class Program
+    {
+        private static async Task Main(string[] args)
+        {
+            // AOT模式下手动注册所有需要序列化的类型
+            MemoryPackFormatterProvider.Register<ServerDataMessage>();
+
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
+            GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+            AppServer serviceRunner = new AppServer();//注册各客户端及服务端（5600、5100、5700、6000）
+            CancellationTokenSource cts = new CancellationTokenSource();
+            cts.Token.Register(() => _ = serviceRunner.StopAsync(cts.Token));
+            // 监听 Ctrl+C 事件
+            Console.CancelKeyPress += (sender, e) =>
+            {
+                Console.WriteLine("Ctrl+C pressed");
+                cts.Cancel();
+                // 阻止其他处理程序处理此事件，以及默认的操作（终止程序）
+                e.Cancel = true;
+            };
+            await serviceRunner.StartAsync(cts.Token);
+        }
+    }
+}

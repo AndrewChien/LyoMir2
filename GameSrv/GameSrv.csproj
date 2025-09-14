@@ -1,0 +1,104 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<!--<TargetFramework>net9.0</TargetFramework>-->
+		<UserSecretsId>1fd3fe7d-5ab8-4c52-b44f-47638c9af29a</UserSecretsId>
+		<!--<LangVersion>11</LangVersion>-->
+		<Nullable>disable</Nullable>
+		<PackageId>GameSrv</PackageId>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<RunAnalyzersDuringLiveAnalysis>True</RunAnalyzersDuringLiveAnalysis>
+		<RunAnalyzersDuringBuild>True</RunAnalyzersDuringBuild>
+		<Description>网络游戏数据处理引擎</Description>
+		<!--<AllowUnsafeBlocks>True</AllowUnsafeBlocks>-->
+		<OutputType>Exe</OutputType>
+		<!--1、-windows+UseWindowsForms-PublishTrimmed(目前不支持winform)一起用不生成runtime后置目录（强制单平台环境）-->
+		<TargetFramework>net9.0-windows</TargetFramework>
+		<!---2、不生成framework+runtime前置目录-->
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+		<!---3、不生成pdb文件-->
+		<DebugType>embedded</DebugType>
+		<!---4、引用Costura.Fody打包dll-->
+		<!--AOT与单文件只能二选一-->
+		<PublishAot>True</PublishAot>
+		<PublishTrimmed>True</PublishTrimmed>
+	</PropertyGroup>
+	
+	<PropertyGroup>
+		<ServerGarbageCollection>false</ServerGarbageCollection>
+		<ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+		<TieredCompilation>false</TieredCompilation>
+		<TieredCompilationQuickJit>false</TieredCompilationQuickJit>
+		<TieredCompilationQuickJitForLoops>false</TieredCompilationQuickJitForLoops>
+	</PropertyGroup>
+	
+	<Choose>
+		<When Condition="$(Configuration)=='Debug' and '$(Mode)' == 'Dev'">
+
+		</When>
+		<When Condition="$(Configuration)=='Release'">
+			<PropertyGroup>
+				<DebugSymbols>false</DebugSymbols>
+				<Optimize>true</Optimize>
+				<DefineConstants>TRACE</DefineConstants>
+			</PropertyGroup>
+		</When>
+
+		<When Condition="$(Configuration)=='Debug'">
+			<Choose>
+				<When Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+					<PropertyGroup>
+						<OutputPath>..\Build\MirServer\Mir200</OutputPath>
+					</PropertyGroup>
+				</When>
+				<When Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+					<PropertyGroup>
+						<OutputPath>/Volumes/Data/Mirserver/Mir200</OutputPath>
+					</PropertyGroup>
+				</When>
+				<When Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+					<PropertyGroup>
+						<OutputPath>/Volumes/opt/Mirserver/Mir200</OutputPath>
+					</PropertyGroup>
+				</When>
+			</Choose>
+		</When>
+		
+	</Choose>
+
+	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<Optimize>False</Optimize>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<Optimize>True</Optimize>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(RunConfiguration)' == 'MirServer' ">
+		<ExternalConsole>true</ExternalConsole>
+	</PropertyGroup>
+	
+	<ItemGroup>
+		<PackageReference Include="Collections.Pooled" Version="2.0.0-preview.27" />
+		<PackageReference Include="McMaster.Extensions.CommandLineUtils" Version="4.1.0" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
+		<PackageReference Include="MySqlConnector" Version="2.3.5" />
+		<PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+		<PackageReference Include="Spectre.Console" Version="0.48.1-preview.0.20" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\M2Server\M2Server.csproj" />
+		<ProjectReference Include="..\Modules\GameCommand\CommandSystem.csproj" />
+		<ProjectReference Include="..\Modules\PlanesSystem\PlanesSystem.csproj" />
+		<ProjectReference Include="..\Modules\ScriptEngine\ScriptSystem.csproj" />
+		<ProjectReference Include="..\OpenMir2\OpenMir2.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="appsettings.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+</Project>

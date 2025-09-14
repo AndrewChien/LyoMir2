@@ -1,0 +1,51 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net9.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<UseWindowsForms>true</UseWindowsForms>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+	</PropertyGroup>
+
+	<Choose>
+		<When Condition="$(Configuration)=='Debug' and '$(Mode)' == 'Dev'">
+
+		</When>
+		<When Condition="$(Configuration)=='Release'">
+			<PropertyGroup>
+				<DebugSymbols>false</DebugSymbols>
+				<Optimize>true</Optimize>
+				<DefineConstants>TRACE</DefineConstants>
+			</PropertyGroup>
+		</When>
+		<When Condition="$(Configuration)=='Debug'">
+			<Choose>
+				<When Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+					<PropertyGroup>
+						<OutputPath>..\Build\MirServer</OutputPath>
+					</PropertyGroup>
+				</When>
+				<When Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+					<PropertyGroup>
+						<OutputPath>/Volumes/Data/Mirserver</OutputPath>
+					</PropertyGroup>
+				</When>
+				<When Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+					<PropertyGroup>
+						<OutputPath>/Volumes/opt/Mirserver</OutputPath>
+					</PropertyGroup>
+				</When>
+			</Choose>
+		</When>
+	</Choose>
+
+	<ItemGroup>
+		<Compile Update="ConsoleControl\ConsoleControl.cs">
+			<SubType>UserControl</SubType>
+		</Compile>
+	</ItemGroup>
+
+</Project>

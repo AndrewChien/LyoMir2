@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>disable</Nullable>
+		<!--AOT发布-->
+		<PublishAot>true</PublishAot>
+		<!--Aot与SingleFile不能同时使用-->
+		<!--<PublishSingleFile>true</PublishSingleFile>-->
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\SystemModule\SystemModule.csproj" />
+    </ItemGroup>
+
+</Project>

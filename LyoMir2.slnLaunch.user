@@ -1,0 +1,47 @@
+[
+  {
+    "Name": "新建配置文件",
+    "Projects": [
+      {
+        "Path": "DBSrv\\DBSrv.csproj",
+        "Action": "Start",
+        "DebugTarget": "DBSrv"
+      },
+      {
+        "Path": "SelGate\\SelGate.csproj",
+        "Action": "Start",
+        "DebugTarget": "SelGate"
+      },
+      {
+        "Path": "LoginGate\\LoginGate.csproj",
+        "Action": "Start",
+        "DebugTarget": "LoginGate"
+      },
+      {
+        "Path": "LoginSrv\\LoginSrv.csproj",
+        "Action": "Start",
+        "DebugTarget": "LoginSrv"
+      },
+      {
+        "Path": "GameGate\\GameGate.csproj",
+        "Action": "Start",
+        "DebugTarget": "RunGate"
+      },
+      {
+        "Path": "GameSrv\\GameSrv.csproj",
+        "Action": "Start",
+        "DebugTarget": "GameSvr"
+      },
+      {
+        "Path": "ChatSrv\\ChatSrv.csproj",
+        "Action": "Start",
+        "DebugTarget": "ChatSrv"
+      },
+      {
+        "Path": "MapSrv\\MapSrv.csproj",
+        "Action": "Start",
+        "DebugTarget": "MapSrv"
+      }
+    ]
+  }
+]

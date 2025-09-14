@@ -1,0 +1,67 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<!--<Nullable>disable</Nullable>-->
+		<!--<EnableDynamicLoading>true</EnableDynamicLoading>-->
+		<!--<AssemblyName>DBSrv.Storage.MySQL</AssemblyName>
+		<RootNamespace>DBSrv.Storage.MySQL</RootNamespace>-->		
+		<RunAnalyzersDuringLiveAnalysis>True</RunAnalyzersDuringLiveAnalysis>
+		<RunAnalyzersDuringBuild>True</RunAnalyzersDuringBuild>
+		<EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+		<AnalysisLevel>latest</AnalysisLevel>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<!--<AllowUnsafeBlocks>True</AllowUnsafeBlocks>-->
+		<!--<OutputType>Exe</OutputType>-->
+		<!--1、-windows+UseWindowsForms-PublishTrimmed(目前不支持winform)一起用不生成runtime后置目录（强制单平台环境）-->
+		<TargetFramework>net9.0-windows</TargetFramework>
+		<!---2、不生成framework+runtime前置目录-->
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+		<!---3、不生成pdb文件-->
+		<DebugType>embedded</DebugType>
+		<!---4、引用Costura.Fody打包dll-->
+		<!--AOT与单文件只能二选一-->
+		<PublishAot>True</PublishAot>
+		<PublishTrimmed>True</PublishTrimmed>
+	</PropertyGroup>
+
+	<PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+	  <DefineConstants>TRACE;NET6_0_OR_GREATER</DefineConstants>
+	</PropertyGroup>
+
+	<PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+	  <DefineConstants>TRACE;NET6_0_OR_GREATER</DefineConstants>
+	</PropertyGroup>
+	<Choose>
+		<When Condition="$(Configuration)=='Debug' and '$(Mode)' == 'Dev'">
+
+		</When>
+		<When Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+			<PropertyGroup>
+				<OutputPath>..\Build\MirServer\DBServer</OutputPath>
+			</PropertyGroup>
+		</When>
+		<When Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+			<PropertyGroup>
+				<OutputPath>/Volumes/Data/Mirserver/DBServer</OutputPath>
+			</PropertyGroup>
+		</When>
+		<When Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+			<PropertyGroup>
+				<OutputPath>/Volumes/opt/Mirserver/DBServer</OutputPath>
+			</PropertyGroup>
+		</When>
+	</Choose>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Options" Version="8.0.1" />
+		<PackageReference Include="MySqlConnector" Version="2.3.5" />
+		<PackageReference Include="NLog" Version="5.2.8" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\DBSrv.Storage\DBSrv.Storage.csproj" />
+	</ItemGroup>
+
+</Project>

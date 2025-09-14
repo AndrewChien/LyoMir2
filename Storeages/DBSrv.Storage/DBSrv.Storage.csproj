@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<!--<TargetFramework>net9.0</TargetFramework>-->
+		<!--<Nullable>enable</Nullable>-->
+		<RunAnalyzersDuringLiveAnalysis>True</RunAnalyzersDuringLiveAnalysis>
+		<RunAnalyzersDuringBuild>True</RunAnalyzersDuringBuild>
+		<EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+		<AnalysisLevel>latest</AnalysisLevel>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<!--<AllowUnsafeBlocks>True</AllowUnsafeBlocks>-->
+		<!--<OutputType>Exe</OutputType>-->
+		<!--1、-windows+UseWindowsForms-PublishTrimmed(目前不支持winform)一起用不生成runtime后置目录（强制单平台环境）-->
+		<TargetFramework>net9.0-windows</TargetFramework>
+		<!---2、不生成framework+runtime前置目录-->
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+		<!---3、不生成pdb文件-->
+		<DebugType>embedded</DebugType>
+		<!---4、引用Costura.Fody打包dll-->
+		<!--AOT与单文件只能二选一-->
+		<PublishAot>True</PublishAot>
+		<PublishTrimmed>True</PublishTrimmed>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\OpenMir2\OpenMir2.csproj" />
+	</ItemGroup>
+
+</Project>

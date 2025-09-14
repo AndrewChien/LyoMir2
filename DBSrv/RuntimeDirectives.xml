@@ -1,0 +1,8 @@
+<RuntimeDirectives>
+	<Assembly Name="MemoryPack">
+		<Type Name="MemoryPack.MemoryPackFormatterAttribute" Dynamic="Required All" />
+	</Assembly>
+	<Assembly Name="OpenMir2.Packets.ServerPackets">
+		<Type Name="OpenMir2.Packets.ServerPackets.ServerDataMessage" Serialize="Required All" />
+	</Assembly>
+</RuntimeDirectives>

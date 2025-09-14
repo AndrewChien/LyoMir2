@@ -1,0 +1,495 @@
+using GameGate.Conf;
+using OpenMir2.DataHandlingAdapters;
+using OpenMir2.Packets.ClientPackets;
+using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Threading.Channels;
+using NetworkMonitor = OpenMir2.NetworkMonitor;
+
+namespace GameGate.Services
+{
+    /// <summary>
+    /// 网关客户端（开启客户端连接GameSrv：5000）
+    /// </summary>
+    public class ClientThread
+    {
+        /// <summary>
+        /// to(server)：GameSrv(5000)
+        /// self(client)：
+        /// </summary>
+        private readonly TcpClient _clientSocket;
+        private readonly GameGateInfo GateInfo;
+        private readonly IPEndPoint LocalEndPoint;
+        /// <summary>
+        /// 用户会话
+        /// </summary>
+        public readonly SessionInfo[] SessionArray = new SessionInfo[GateShare.MaxSession];
+        /// <summary>
+        ///  网关游戏服务器之间检测是否失败（超时）
+        /// </summary>
+        private bool CheckServerFail { get; set; }
+        /// <summary>
+        /// 网关游戏服务器之间检测是否失败次数
+        /// </summary>
+        private int CheckServerFailCount { get; set; }
+        /// <summary>
+        /// 网关是否就绪
+        /// </summary>
+        private bool GateReady { get; set; }
+        /// <summary>
+        /// 是否链接成功
+        /// </summary>
+        private bool Connected { get; set; }
+        /// <summary>
+        /// 历史最高在线人数
+        /// </summary>
+        private int OnlineCount { get; set; }
+        /// <summary>
+        /// 运行状态
+        /// </summary>
+        private RunningState RunningState { get; set; }
+        private int CheckServerTick { get; set; }
+        private ServerService ServerService { get; set; }
+        /// <summary>
+        /// Session管理
+        /// </summary>
+        private static SessionContainer SessionContainer => SessionContainer.Instance;
+        private readonly NetworkMonitor _networkMonitor;
+        /// <summary>
+        /// 发送封包（网关-》客户端）
+        /// </summary>
+        private readonly Channel<ServerSessionMessage> _messageChannel;
+
+        /// <summary>
+        /// 网关客户端（开启客户端连接GameSrv：5000）
+        /// </summary>
+        /// <param name="endPoint"></param>
+        /// <param name="gameGate"></param>
+        /// <param name="networkMonitor"></param>
+        public ClientThread(IPEndPoint endPoint, GameGateInfo gameGate, NetworkMonitor networkMonitor)
+        {
+            GateInfo = gameGate;
+            RunningState = RunningState.Waiting;
+            Connected = false;
+            LocalEndPoint = endPoint;
+            CheckServerTick = HUtil32.GetTickCount();
+            _networkMonitor = networkMonitor;
+            _messageChannel = Channel.CreateUnbounded<ServerSessionMessage>();
+            _clientSocket = new TcpClient();
+            _clientSocket.Connected += ClientSocketConnect;
+            _clientSocket.Disconnected += ClientSocketDisconnect;
+            _clientSocket.Received += ClientSocketRead;
+        }
+
+        public bool IsConnected => Connected;
+
+        public string EndPoint => $"{GateInfo.ServerAdress}:{GateInfo.ServerPort}";
+
+        public byte ThreadId => GateInfo.ServiceId;
+
+        public RunningState Running => RunningState;
+
+        /// <summary>
+        /// 返回等待处理的消息数量
+        /// </summary>
+        public int QueueCount => _messageChannel.Reader.Count;
+
+        public void Initialize(ServerService serverService)
+        {
+            TouchSocketConfig config = new TouchSocketConfig();
+            config.SetRemoteIPHost(new IPHost(IPAddress.Parse(GateInfo.ServerAdress), GateInfo.ServerPort));
+            config.SetTcpDataHandlingAdapter(() => new PacketFixedHeaderDataHandlingAdapter());
+            config.ConfigurePlugins(x =>
+            {
+                x.UseReconnection();
+            });
+            _clientSocket.Setup(config);
+            ServerService = serverService;
+        }
+
+        public async Task Start()
+        {
+            try
+            {
+                if (_clientSocket.Online)
+                {
+                    return;
+                }
+                await _clientSocket.ConnectAsync();
+            }
+            catch (SocketException error)
+            {
+                ClientSocketError(error.SocketErrorCode);
+            }
+            catch (TimeoutException)
+            {
+                ClientSocketError(SocketError.TimedOut);
+            }
+            catch (Exception)
+            {
+                ClientSocketError(SocketError.SocketError);
+            }
+        }
+
+        public void Stop()
+        {
+            _clientSocket.Close();
+        }
+
+        public ushort GetSessionId(string connectionId)
+        {
+            int length = 3;
+            byte[] randomNumberBytes = new byte[length + 1];
+            using (RandomNumberGenerator randomNumberGenerator = RandomNumberGenerator.Create())
+            {
+                randomNumberGenerator.GetBytes(randomNumberBytes);
+            }
+
+            int hash = connectionId.GetHashCode();
+            byte hashByte = (byte)(hash & 0xFF); // 取哈希码的最低8位
+
+            byte checksum = 0;
+            for (int i = 0; i < length; i++)
+            {
+                randomNumberBytes[i] ^= hashByte; // 将每个随机字节与哈希字节进行异或
+                checksum ^= randomNumberBytes[i];
+            }
+
+            randomNumberBytes[length] = checksum;
+
+            StringBuilder builder = new StringBuilder();
+            foreach (byte randomNumberByte in randomNumberBytes)
+            {
+                builder.Append(randomNumberByte % 10);
+            }
+
+            if (ushort.TryParse(builder.ToString(), out ushort sessionId))
+            {
+                return sessionId;
+            }
+            return 0;
+        }
+
+        public string GetSessionCount()
+        {
+            int sessionCount = 0;
+            for (int i = 0; i < SessionArray.Length; i++)
+            {
+                if (SessionArray[i] != null && SessionArray[i].Socket != null)
+                {
+                    sessionCount++;
+                }
+            }
+            if (sessionCount > OnlineCount)
+            {
+                OnlineCount = sessionCount;
+            }
+            return sessionCount + "/" + OnlineCount;
+        }
+
+        private Task ClientSocketConnect(IClient client, ConnectedEventArgs e)
+        {
+            IPHost endPoint = ((TcpClientBase)client).RemoteIPHost;
+            GateReady = true;
+            CheckServerTick = HUtil32.GetTickCount();
+            Connected = true;
+            RunningState = RunningState.Runing;
+            RestSessionArray();
+            LogService.Info($"游戏网关[{LocalEndPoint}] 游戏引擎[{endPoint.EndPoint}]链接成功.");
+            LogService.Info($"线程[{Guid.NewGuid():N}]连接 {endPoint} 成功...");
+            return Task.CompletedTask;
+        }
+
+        private Task ClientSocketDisconnect(IClient client, DisconnectEventArgs e)
+        {
+            TcpClientBase socSocket = ((TcpClientBase)client);
+            for (int i = 0; i < GateShare.MaxSession; i++)
+            {
+                SessionInfo userSession = SessionArray[i];
+                if (userSession != null)
+                {
+                    if (userSession.Socket != null && userSession.Socket == socSocket.MainSocket)
+                    {
+                        userSession.Socket.Close();
+                        userSession.Socket = null;
+                        userSession.SckHandle = -1;
+                    }
+                }
+            }
+            RestSessionArray();
+            GateReady = false;
+            LogService.Info($"游戏网关[{LocalEndPoint}] 游戏引擎[{socSocket.RemoteIPHost.EndPoint}]断开链接.");
+            Connected = false;
+            CheckServerFail = true;
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// 接收GameSvr发来的封包消息
+        /// </summary>
+        private Task ClientSocketRead(IClient client, ReceivedDataEventArgs e)
+        {
+            //LogService.Info($"GameGate：收到来自{(client as SocketClient)?.IP}:{(client as SocketClient)?.Port}的消息");
+            try
+            {
+                if (e.RequestInfo is DataMessageFixedHeaderRequestInfo requestInfo)
+                {
+                    ProcessServerPacket(requestInfo.Header, requestInfo.Message);
+                    _networkMonitor.Receive(requestInfo.BodyLength);
+                }
+            }
+            catch (Exception exception)
+            {
+                LogService.Error(exception.Message);
+            }
+            return Task.CompletedTask;
+        }
+
+        private void ClientSocketError(SocketError e)
+        {
+            switch (e)
+            {
+                case SocketError.ConnectionRefused:
+                    LogService.Warn($"游戏网关[{LocalEndPoint}] 链接游戏引擎[{EndPoint}]拒绝链接...");
+                    Connected = false;
+                    break;
+                case SocketError.ConnectionReset:
+                    LogService.Info($"游戏引擎[{EndPoint}]主动关闭连接游戏网关[{LocalEndPoint}]...");
+                    Connected = false;
+                    break;
+                case SocketError.TimedOut:
+                    LogService.Info($"游戏网关[{LocalEndPoint}] 链接游戏引擎[{EndPoint}]超时...");
+                    Connected = false;
+                    break;
+                default:
+                    LogService.Info($"游戏网关[{LocalEndPoint}] 链接游戏引擎[{EndPoint}]失败...");
+                    Connected = false;
+                    break;
+            }
+            GateReady = false;
+            CheckServerFail = true;
+        }
+
+        private void ProcessServerPacket(ServerMessage packetHeader, ReadOnlySpan<byte> data)
+        {
+            switch (packetHeader.Ident)
+            {
+                case Grobal2.GM_STOP: //游戏引擎停止服务,网关不在接收或分配用户连接到该游戏引擎
+                    LogService.Info($"GameGate：收到[Grobal2.GM_STOP]类型消息");
+                    RunningState = RunningState.Stop; //停止分配后，10分钟内不允许尝试连接服务器
+                    break;
+                case Grobal2.GM_CHECKSERVER:
+                    //LogService.Info($"GameGate：收到[Grobal2.GM_CHECKSERVER]类型消息");//心跳包
+                    CheckServerFail = false;
+                    CheckServerTick = HUtil32.GetTickCount();
+                    break;
+                case Grobal2.GM_SERVERUSERINDEX:
+                    LogService.Info($"GameGate：收到[Grobal2.GM_SERVERUSERINDEX]类型消息");
+                    ClientSession userSession = SessionContainer.GetSession(ThreadId, packetHeader.SessionId);
+                    if (userSession != null)
+                    {
+                        userSession.SvrListIdx = packetHeader.SessionIndex;
+                    }
+                    break;
+                case Grobal2.GM_RECEIVE_OK:
+                    LogService.Info($"GameGate：收到[Grobal2.GM_RECEIVE_OK]类型消息");
+                    SendServerMsg(Grobal2.GM_RECEIVE_OK, 0, 0, 0, "", 0);
+                    break;
+                case Grobal2.GM_DATA:
+                    LogService.Info($"GameGate：收到[Grobal2.GM_DATA]类型消息");
+                    unsafe
+                    {
+                        int packetLen = packetHeader.PackLength < 0 ? -packetHeader.PackLength : packetHeader.PackLength;
+                        ServerSessionMessage sendMsg = new ServerSessionMessage();
+                        sendMsg.SessionId = packetHeader.SessionId;
+                        sendMsg.BuffLen = (short)packetHeader.PackLength;
+                        //sendMsg.Buffer = GateShare.BytePool.Rent(packetLen);
+                        sendMsg.Buffer = new byte[packetLen];
+                        MemoryCopy.BlockCopy(data, 0, sendMsg.Buffer, 0, packetLen);
+                        _messageChannel.Writer.TryWrite(sendMsg);
+                    }
+                    break;
+                case Messages.GM_TEST:
+                    LogService.Info($"GameGate：收到[Grobal2.GM_TEST]类型消息");
+                    break;
+            }
+        }
+        /// <summary>
+        /// 转发GameSvr封包消息
+        /// </summary>
+        public Task StartMessageQueue(CancellationToken stoppingToken)
+        {
+            return Task.Factory.StartNew(async () =>
+               {
+                   while (await _messageChannel.Reader.WaitToReadAsync(stoppingToken))
+                   {
+                       if (_messageChannel.Reader.TryRead(out ServerSessionMessage message))
+                       {
+                           ClientSession userSession = SessionContainer.GetSession(ThreadId, message.SessionId);
+                           if (userSession == null)
+                           {
+                               continue;
+                           }
+                           try
+                           {
+                              await userSession.ProcessServerPacket(ThreadId, message);
+                           }
+                           catch (Exception ex)
+                           {
+                               LogService.Error(ex.Message);
+                           }
+                           finally
+                           {
+                               //GateShare.BytePool.Return(message.Buffer);
+                           }
+                       }
+                   }
+               }, stoppingToken);
+        }
+
+        public void RestSessionArray()
+        {
+            for (int i = 0; i < GateShare.MaxSession; i++)
+            {
+                if (SessionArray[i] != null)
+                {
+                    SessionArray[i].Socket = null;
+                    SessionArray[i].SessionIndex = 0;
+                    SessionArray[i].ReceiveTick = HUtil32.GetTickCount();
+                    SessionArray[i].SckHandle = 0;
+                    SessionArray[i].SessionId = 0;
+                }
+            }
+        }
+
+        private void SendServerMsg(ushort command, ushort sessionId, int nSocket, ushort userIndex, string data, int nLen)
+        {
+            ServerMessage serverMessage = new ServerMessage
+            {
+                PacketCode = Grobal2.PacketCode,
+                Socket = nSocket,
+                SessionId = sessionId,
+                Ident = command,
+                SessionIndex = userIndex,
+                PackLength = nLen
+            };
+            byte[] sendBuffer = SerializerUtil.Serialize(serverMessage);
+            if (!string.IsNullOrEmpty(data))
+            {
+                byte[] strBuff = HUtil32.GetBytes(data);
+                byte[] tempBuff = new byte[ServerMessage.PacketSize + data.Length];
+                MemoryCopy.BlockCopy(sendBuffer, 0, tempBuff, 0, sendBuffer.Length);
+                MemoryCopy.BlockCopy(strBuff, 0, tempBuff, sendBuffer.Length, data.Length);
+                Send(tempBuff);
+            }
+            else
+            {
+                Send(sendBuffer);
+            }
+        }
+
+        /// <summary>
+        /// 玩家进入游戏
+        /// </summary>
+        public void UserEnter(ushort sessionId, int socketId, string data)
+        {
+            SendServerMsg(Grobal2.GM_OPEN, sessionId, socketId, 0, data, data.Length);
+        }
+
+        /// <summary>
+        /// 玩家退出游戏
+        /// </summary>
+        public void UserLeave(int socketId)
+        {
+            SendServerMsg(Grobal2.GM_CLOSE, 0, socketId, 0, "", 0);
+        }
+
+        /// <summary>
+        /// 发送消息到GameSvr
+        /// </summary>
+        /// <param name="sendBuffer"></param>
+        internal void Send(byte[] sendBuffer)
+        {
+            if (_clientSocket.Online)
+            {
+                _clientSocket.Send(sendBuffer);
+                _networkMonitor.Send(sendBuffer.Length);
+            }
+        }
+
+        public Task SendQueue(string connectionId, byte[] data, int len)
+        {
+            return ServerService.Send(connectionId, data, len);
+        }
+
+        /// <summary>
+        /// 处理超时或空闲会话
+        /// </summary>
+        public void ProcessIdleSession()
+        {
+            int currentTick = HUtil32.GetTickCount();
+            for (int j = 0; j < SessionArray.Length; j++)
+            {
+                SessionInfo userSession = SessionArray[j];
+                if (userSession != null && userSession.Socket != null)
+                {
+                    if ((currentTick - userSession.ReceiveTick) > GateShare.SessionTimeOutTime) //清理超时用户会话 
+                    {
+                        userSession.Socket.Close();
+                        userSession.SckHandle = -1;
+                        userSession.Socket = null;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 检查客户端和服务端之间的状态以及心跳维护
+        /// </summary>
+        public void CheckConnectedState()
+        {
+            if (Running == RunningState.Stop) //停止服务后暂时停止心跳连接检查
+            {
+                if ((HUtil32.GetTickCount() - CheckServerTick) > 60 * 10000) //10分钟分不允许尽兴链接服务器
+                {
+                    _ = Start();
+                    LogService.Info($"游戏引擎维护时间结束,重新连接游戏引擎[{EndPoint}].");
+                }
+                return;
+            }
+            if (GateReady)
+            {
+                SendServerMsg(Grobal2.GM_CHECKCLIENT, 0, 0, 0, "", 0);
+                LogService.Info($"向GameSrv游戏服务器发送心跳包...");
+                CheckServerFailCount = 0;
+                return;
+            }
+            if (CheckServerFail && CheckServerFailCount <= ushort.MaxValue)
+            {
+                _ = Start();
+                CheckServerFailCount++;
+                LogService.Info($"链接服务器[{EndPoint}] 失败次数[{CheckServerFailCount}]");
+                return;
+            }
+            if (CheckServerFailCount >= ushort.MaxValue)
+            {
+                LogService.Info("超过最大重试次数，请重启程序后再次确认链接是否正常。");
+                return;
+            }
+            CheckServerTimeOut();
+        }
+
+        private void CheckServerTimeOut()
+        {
+            if ((HUtil32.GetTickCount() - CheckServerTick) > GateShare.CheckServerTimeOutTime && CheckServerFailCount <= ushort.MaxValue)
+            {
+                CheckServerFail = true;
+                Stop();
+                CheckServerFailCount++;
+                LogService.Info($"服务器[{EndPoint}]长时间没有响应,断开链接.失败次数:[{CheckServerFailCount}]");
+            }
+        }
+
+        public string ConnectedState => IsConnected ? "[green]Connected[/]" : "[red]Not Connected[/]";
+    }
+}
