@@ -1,4 +1,11 @@
 热血传奇服务端，支持AOT，跨平台，有界面。基于openm2项目。
+
+</br>
+</br>
+配套资源文件在QQ群共享文件中，群号：1063081017
+</br>
+</br>
+
 <img src='https://github.com/AndrewChien/Blog/blob/master/source/mir01.png'/></br>
 <img src='https://github.com/AndrewChien/Blog/blob/master/source/mir02.png'/></br>
 ---
